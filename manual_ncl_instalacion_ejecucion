@@ -1,0 +1,311 @@
+Manual de Instalación y compilación NCL
+
+
+Requerimientos
+
+Sistema operativo ubuntu 14.0.4   (recomendado)
+enlace de descarga: http://www.ubuntu.com/download/desktop
+Paqueteria NCL  Enlace: https://www.ncl.ucar.edu/
+Descargar archivos con información de viento .
+        	Enalce: http://www.nco.ncep.noaa.gov/pmb/products/gfs/
+Paqueteria ncdump
+API de Google Maps enlace: https://developers.google.com/maps/
+
+Instalación
+
+1.- Abrir terminal y entrar como usuario root.
+  
+     sudo su root
+
+2.- ir al directorio /usr/local.
+
+    cd /usr/local
+
+3.- Descargar la libreria NCL para ubuntu desde el enlace: https://www.earthsystemgrid.org/dataset/ncl.630.0.html
+
+     para 64 bots: ncl_​ncarg-​6.​3.​0.​Linux_​Debian7.​8_​x86_​64_​gcc472.​tar.​gz
+  
+     para 32 bits: ncl_​ncarg-​6.​3.​0.​Linux_​Debian6.​0_​i686_​gcc445.​tar.​gz
+
+4.- Entrar al directorio donde se almaceno la descarga, en mi caso es Descargas y mover el paquete descargado a /usr/local.
+
+     mv ncl_​ncarg-​6.​3.​0.​Linux_​Debian7.​8_​x86_​64_​gcc472.​tar.​gz  /usr/local 
+
+5.- descomprimir el paquete.
+
+    tar -xvzf  ncl_​ncarg-​6.​3.​0.​Linux_​Debian7.​8_​x86_​64_​gcc472.​tar.​gz
+
+6.- Incluir la siguiente línea en /etc/bash.bashrc.
+
+    export NCARG_ROOT=/usr/local
+
+7.- Actualizar las variables de ambiente. 
+
+   source /etc/bash.bashrc
+
+
+8.- Probar la correcta instalación de la libraria con el comando:
+
+     ncl 
+
+
+resultado:
+Copyright (C) 1995-2015 - All Rights Reserved 
+ University Corporation for Atmospheric Research 
+ NCAR Command Language Version 6.3.0 
+ The use of this software is governed by a License Agreement. 
+ See http://www.ncl.ucar.edu/ for more details.
+Ncl 0>
+
+para salir solo: exit
+
+* Solución de probables errores.
+
+Solucionar al error de falta de archivo 
+
+libssh2.so.1
+Instalar paqueteria: apt-get install libssh2-1-dev libssh2-php 
+
+libgfortran.so.3
+Instalar paqueteria: apt-get install gfortran
+
+9.- Instalación de  NCDUMP
+
+sudo apt-get install netcdf-lib
+
+Manipulación de archivos soportados por NCL.
+Mas información en: https://www.ncl.ucar.edu/
+
+Descargar archivo con información, en este caso sera un archivo .grib
+Enalce: http://www.nco.ncep.noaa.gov/pmb/products/gfs/
+
+Ejemplo: GFS - World Area Forecast System
+Upper Air Forecast (1.25 degree resolution)
+
+Archivo: gfs.tCCz.wafs_grb45fFF.nouswafs.grib2
+
+Convertir  un archivo .grib a .nc
+
+1.- Convertir archivo .grib a formato .nc para poder ser manipulado con ncdump,  muy importante guardar todos los archivos ocupados en un solo directorio.
+Para convertir el archivo .grib en formato .nc se requiere del apoyo de un script:
+
+begin 
+;*********************************************** 
+; get variable names from grib file 
+;*********************************************** 
+   grib_in  = addfile("./wind.grib2","r")   
+   names    = getfilevarnames(grib_in); extract all variable names 
+;*********************************************** 
+; create output netcdf file 
+;*********************************************** 
+   system("rm salida.nc") ; remove any pre-existing file 
+   ncdf_out = addfile("salida.nc" ,"c")       ; create output netCDF file 
+;*********************************************** 
+; loop through variables and output each to netcdf 
+;*********************************************** 
+   do i = 0, dimsizes(names)-1  
+   ncdf_out->$names(i)$ = grib_in->$names(i)$ 
+   end do   
+end
+
+Guardar el script en la misma ruta donde se tiene el archivo .grib con la extención .ncl ejemplo convert.ncl.
+Para ejecuatar el script desde consola solo se requiere de la siguiente línea de comando.
+
+      ncl convert.ncl 
+
+Se obtendra como salida un archivo con la extención .nc
+
+2.-  Para leer el archivo se ejecuta el comando siguiente desde consola.
+
+      ncdump (nombredelarchivo.nc)  
+
+3.-  Para direccionar la salida a un archivo de texto se usa el siguiente comando.
+
+      ncdump  (nombredelarchivo.nc)  > salida.txt
+
+4.- Extraer variable(s) en especifico se ocupa la siguiente línea de comando.
+
+      ncdump -v (variables a extraer: var1,var2...) (nombredelarchivo.nc) > salida.js (Se puede direccionar la salida a cualquier formato de archivo).
+
+
+
+
+
+
+
+Hasta este punto todo se a hecho de forma manual, la descarga hasta el punto de selección de las variables pero se requiere automatizar el proceso, para esto se realizo un script para automatizar el proceso. Este archivo es el principal puesto que contiene todos los comandos para extraer los datos y así poder graficar en la API de Google, para ejecutarlo solo basta estar en la ruta del archivo y ejecutar el siguiente comando.
+
+./script.sh
+
+
+#!/bin/bash 
+# se extrae la fecha actual de la máquina en formato YYMMDD.
+fecha=$(date +"%Y%m%d") 
+# se extrae la hora. 
+hora=$(date +%H)
+#con echo se manda a imprimir en consola.
+echo $fecha 
+echo $hora 
+# se elimina el archivo con el nombre wind.grib2 
+rm wind.grib2 
+# se compara la hora .
+if [ "$hora" -lt 06 ]; then 
+# se realiza la descarga del archivo con respecto a la fecha y hora. Si es menor la hora a 06:00 se #cumple la condición.
+wget http://www.ftp.ncep.noaa.gov/data/nccf/com/gfs/prod/"gfs."$fecha"00"/gfs.t00z.wafs_grb45f06.grib2 
+ # una vez completa la descarga se renombra el archivo descargado.
+mv gfs.t00z.wafs_grb45f06.grib2 wind.grib2 
+
+elif [ "$hora" -lt 12 ]; then 
+# se realiza la descarga del archivo con respecto a la fecha y hora. Si es menor la hora a 12:00 se #cumple la condición.
+wget http://www.ftp.ncep.noaa.gov/data/nccf/com/gfs/prod/"gfs."$fecha"06"/gfs.t06z.wafs_grb45f06.grib2 
+#se reombra el archivo.
+mv gfs.t06z.wafs_grb45f06.grib2 wind.grib2 
+elif [ "$hora" -lt 18 ]; then 
+# se realiza la descarga del archivo con respecto a la fecha y hora. Si es menor la hora a 18:00 se #cumple la condición.
+wget http://www.ftp.ncep.noaa.gov/data/nccf/com/gfs/prod/"gfs."$fecha"12"/gfs.t12z.wafs_grb45f06.grib2 
+#se reombra el archivo.
+mv gfs.t12z.wafs_grb45f06.grib2 wind.grib2 
+elif [ "$hora" -ge 18 ]; then 
+# se realiza la descarga del archivo con respecto a la fecha y hora. Si es mayor o igual se cumple la  #condición.
+wget http://www.ftp.ncep.noaa.gov/data/nccf/com/gfs/prod/"gfs."$fecha"18"/gfs.t18z.wafs_grb45f06.grib2 
+#se reombra el archivo.
+mv gfs.t18z.wafs_grb45f06.grib2 wind.grib2 
+fi # fin de las condiciones de descarga
+
+#se ejecuta script que permite convertir un archivo .grib en .nc.
+ncl convert.ncl 
+#eliminar archivo.
+rm coordenadas_lat_lon.js 
+#se extraen variables especificas
+ncdump -v lat_0,lon_0  salida.nc > coordenadas_lat_lon.js 
+#eliminar archivo.
+rm valores_u_v.js 
+#extraer varaible especificas del archivo de las descarga con ncdump.
+ncdump -v UGRD_P0_L6_GLL0,VGRD_P0_L6_GLL0  salida.nc > valores_u_v.js 
+#eliminar lineas que no se ocupan
+sed -i "1,170d" coordenadas_lat_lon.js 
+#eliminar lineas que no se ocupan
+sed -i "1,170d" valores_u_v.js 
+#bsucar texto y rempazar.
+perl -pi -e "s/;/];/g" valores_u_v.js 
+#bsucar texto y rempazar.
+perl -pi -e "s/UGRD_P0_L6_GLL0 =/U=[/g" valores_u_v.js 
+#bsucar texto y rempazar.
+perl -pi -e "s/VGRD_P0_L6_GLL0 =/V=[/g" valores_u_v.js 
+#bsucar texto y rempazar.
+perl -pi -e "s/;/];/g" coordenadas_lat_lon.js 
+perl -pi -e "s/lat_0 =/lat=[/g" coordenadas_lat_lon.js 
+#bsucar texto y rempazar.
+perl -pi -e "s/lon_0 =/lon=[/g" coordenadas_lat_lon.js 
+#eliminar una sola línea
+sed -i "6908d" valores_u_v.js 
+#eliminar una sola línea
+sed -i "36d" coordenadas_lat_lon.js 
+#terminar de ejecutar el script
+exit
+
+Código para graficar el la API de Google MAPS.
+
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+<meta charset="utf-8">
+<title>Atlas de viento</title>
+<style>
+html, body, #map-canvas {
+height: 100%;
+margin: 0;
+padding: 0;
+}
+
+</style>
+<script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true"></script>
+<script src="valores_u_v.js"></script>
+<script src="coordenadas_lat_lon.js"></script>
+
+
+<script language="Javascript" type="text/javascript">
+// This example displays a marker at the center of Australia.
+// When the user clicks the marker, an info window opens.
+var contador=0;
+var infowindow;
+var U;
+var V;
+var lat;
+var lon;
+var marker;
+
+function initialize() {
+var mapOptions = {
+zoom: 7,
+mapTypeId: google.maps.MapTypeId.TERRAIN
+};
+
+if(navigator.geolocation){
+navigator.geolocation.getCurrentPosition(function(position){
+var pos = new google.maps.LatLng(position.coords.latitude,
+position.coords.longitude);
+
+//window.alert("hola"+lng);
+var infowindow = new google.maps.InfoWindow({
+map: map,
+position: pos,
+content: 'Tu Ubicación.'+position.coords.latitude+' , '+position.coords.longitude,
+});
+map.setCenter(pos);
+}, function(){
+handleNoGeolocation(true);
+});
+}else{
+handleNoGeolocation(false);
+}
+
+var map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
+
+for(var i=0;i<lat.length;i++){
+for(var j=0; j<lon.length;j++){
+
+marker = new google.maps.Marker({
+position: new google.maps.LatLng(lat[i],lon[j]), 
+map: map, 
+title: 'Latitud: '+lat[i]+'\nLongitud: '+lon[j]+'\nValor_U: '+U[contador]+'\nValor_V: '+V[contador]
+});
+contador=contador+1;
+}
+}
+}
+google.maps.event.addDomListener(window, 'load', initialize);
+
+</script>
+</head>
+<body>
+<div id="map-canvas"></div>
+</body>
+</html>
+
+
+Para descargar todos los archivos necesarios se encuentran en el siguiente enlace: 
+https://github.com/0sskar/Atlas_de_viento.git
+
+
+Referencias.
+http://www.nco.ncep.noaa.gov/pmb/products/gfs/
+https://www.ncl.ucar.edu/
+https://www.unidata.ucar.edu/software/netcdf/docs/ncdump-man-1.html
+http://blog.desdelinux.net/como-borrar-lineas-especificas-de-un-archivo-usando-sed/
+
+
+
+
+
+
+
+    
+
+
+  
+    
+
+     
